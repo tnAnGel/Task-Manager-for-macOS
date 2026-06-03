@@ -1,0 +1,109 @@
+/* Shared chrome: context-menu flyout and scrollbars. Uses tokens from tokens.css. */
+
+/* ---- Context menu (TM.components.contextMenu.show) ---- */
+.ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;               /* stretch items to the full menu width */
+  min-width: 200px;
+  max-width: 320px;
+  margin: 0;
+  padding: var(--sp-1);
+  background: var(--bg-menu);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-flyout);
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  user-select: none;
+  list-style: none;
+  outline: none;
+  animation: ctx-menu-in 90ms ease-out;
+}
+
+@keyframes ctx-menu-in {
+  from { opacity: 0; transform: translateY(-2px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+.ctx-menu .ctx-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 28px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  font-weight: var(--fw-normal);
+  text-align: left;           /* <button> defaults to center; force left */
+  white-space: nowrap;
+  cursor: default;
+}
+
+.ctx-menu .ctx-item:hover,
+.ctx-menu .ctx-item:focus,
+.ctx-menu .ctx-item.active {
+  background: var(--row-hover);
+  outline: none;
+}
+
+.ctx-menu .ctx-item .ctx-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Destructive item (e.g. End task) */
+.ctx-menu .ctx-item.danger { color: var(--danger); }
+.ctx-menu .ctx-item.danger:hover,
+.ctx-menu .ctx-item.danger:focus,
+.ctx-menu .ctx-item.danger.active {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* Disabled item */
+.ctx-menu .ctx-item.disabled,
+.ctx-menu .ctx-item[aria-disabled="true"] {
+  color: var(--text-disabled);
+  pointer-events: none;
+  cursor: default;
+}
+
+.ctx-menu .ctx-separator,
+.ctx-menu .separator {
+  height: 1px;
+  margin: var(--sp-1) var(--sp-2);
+  padding: 0;
+  background: var(--divider);
+  border: none;
+}
+
+/* ---- Scrollbars (thin, dark) ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-elevated) transparent;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--bg-elevated);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--r-pill);
+  min-height: 32px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--row-hover);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:active {
+  background: var(--row-selected);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }

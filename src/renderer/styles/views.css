@@ -1,0 +1,146 @@
+/* views.css — styling for the secondary table views (Startup apps, Users).
+   details.js and services.js inject their own <style>, so they are not covered here.
+   Class hooks come from js/views/startup.js and js/views/users.js. Uses ONLY tokens. */
+
+/* ---- Generic view chrome (startup uses .view / .view-header; users uses .users-page) ---- */
+.view, .users-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-content);
+}
+.view-header, .users-head {
+  padding: var(--sp-5) var(--sp-6) var(--sp-3);
+  flex: 0 0 auto;
+}
+.view-title, .users-title {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+  margin: 0 0 2px;
+}
+.view-subtitle {
+  font-size: var(--fs-md);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+/* ---- Scroll containers ---- */
+.startup-table-wrap, .users-table-wrap, .table-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0 var(--sp-4) var(--sp-4);
+}
+
+/* ---- Shared data table (startup + users both use .data-table) ---- */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+  color: var(--text-secondary);
+}
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-header);
+  color: var(--text-tertiary);
+  font-weight: var(--fw-normal);
+  font-size: var(--fs-sm);
+  text-align: left;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--divider);
+  white-space: nowrap;
+}
+.data-table tbody td {
+  padding: var(--sp-1) var(--sp-3);
+  height: var(--row-h);
+  border-bottom: 1px solid var(--row-stripe);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.data-table tbody tr:hover { background: var(--row-hover); }
+
+/* Column alignment */
+.col-name, .col-user, .col-text, .col-type { text-align: left; }
+.col-num, .col-cpu, .col-mem, .col-proc { text-align: right; font-variant-numeric: tabular-nums; }
+.col-status, .col-impact { text-align: left; }
+.data-table thead .col-num,
+.data-table thead .col-cpu,
+.data-table thead .col-mem,
+.data-table thead .col-proc { text-align: right; }
+
+/* Name cell with icon/avatar */
+.col-name, .user-name-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-primary);
+}
+.startup-app-icon, .user-avatar {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-tertiary);
+}
+
+/* Interactive autostart checkbox */
+.startup-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  outline: none;
+}
+.startup-check:hover { color: var(--text-secondary); }
+.startup-check.checked { color: var(--accent); }
+.startup-check.checked:hover { color: var(--accent-strong); }
+.startup-check:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.status-pill { cursor: pointer; }
+.startup-row.pending { opacity: 0.55; }
+.startup-row.pending .startup-check,
+.startup-row.pending .status-pill { pointer-events: none; }
+.startup-name-text, .user-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Pills (status / enabled / impact / user status) ---- */
+.status-pill, .user-status {
+  display: inline-block;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: 16px;
+}
+.status-pill.pill-enabled, .user-status-active {
+  background: rgba(108,203,95,0.16);
+  color: var(--success);
+}
+.status-pill.pill-disabled, .user-status-disconnected {
+  background: rgba(255,255,255,0.07);
+  color: var(--text-tertiary);
+}
+
+.impact-label { font-size: var(--fs-md); }
+.impact-high   { color: var(--danger); }
+.impact-medium { color: var(--warning); }
+.impact-low    { color: var(--success); }
+.impact-none   { color: var(--text-tertiary); }
+
+/* ---- Empty / message states ---- */
+.startup-message, .users-empty {
+  padding: var(--sp-6);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--fs-md);
+}

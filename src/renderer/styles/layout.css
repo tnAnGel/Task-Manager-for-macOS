@@ -1,0 +1,369 @@
+/* layout.css — global reset, custom titlebar, sidebar icon rail, content frame.
+   Windows 11 Task Manager (dark). Uses ONLY tokens.css variables. */
+
+/* ============================================================
+   Global reset / base
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+html {
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  cursor: default;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  /* The whole UI is non-selectable like a native app, except inputs (below). */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Re-enable selection + a text caret inside editable fields. */
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  font-family: inherit;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: default;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+svg {
+  display: block;
+  flex: none;
+}
+
+/* Custom scrollbars (Win11 thin overlay style) */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--r-pill);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ============================================================
+   Titlebar (custom, frameless, draggable)
+   ============================================================ */
+#titlebar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: var(--titlebar-h);
+  background: var(--bg-titlebar);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  app-region: drag;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+  z-index: 20;
+}
+
+/* App icon + title block (left). */
+.titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+.titlebar-brand svg,
+.titlebar-brand img {
+  width: 16px;
+  height: 16px;
+}
+
+/* Centered search box. */
+.titlebar-search {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: min(420px, 42vw);
+  height: 28px;
+  padding: 0 var(--sp-3);
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  color: var(--text-secondary);
+}
+.titlebar-search:focus-within {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+.titlebar-search svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-tertiary);
+}
+.titlebar-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+}
+.titlebar-search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Spacer pushes window controls to the right when no absolute centering is used. */
+.titlebar-spacer {
+  flex: 1 1 auto;
+}
+
+/* Window control buttons (min / max / close). */
+.titlebar-controls {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  margin-left: auto;
+}
+.titlebar-btn {
+  width: 46px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  background: transparent;
+  transition: background-color 0.08s ease, color 0.08s ease;
+}
+.titlebar-btn svg {
+  width: 11px;
+  height: 11px;
+}
+.titlebar-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+.titlebar-btn:active {
+  background: rgba(255, 255, 255, 0.03);
+}
+.titlebar-btn.close:hover {
+  background: #c42b1c;
+  color: #ffffff;
+}
+.titlebar-btn.close:active {
+  background: #b2271a;
+  color: #ffffff;
+}
+
+/* ============================================================
+   Shell — sidebar + content row
+   ============================================================ */
+#shell {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ============================================================
+   Sidebar — icon rail that expands to show labels
+   ============================================================ */
+#sidebar {
+  flex: none;
+  width: var(--sidebar-w);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-1) 0;
+  overflow: hidden;
+  transition: width 0.14s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#sidebar.expanded {
+  width: var(--sidebar-w-expanded);
+}
+
+/* Hamburger toggle pinned at the top. */
+.sidebar-hamburger {
+  flex: none;
+  margin-bottom: var(--sp-1);
+}
+
+/* The scrollable middle list of nav items. */
+.sidebar-nav {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebar-nav::-webkit-scrollbar {
+  width: 0;
+}
+
+/* Top hamburger block + bottom settings block (app.js: .sidebar-top / .sidebar-bottom). */
+.sidebar-top {
+  flex: none;
+}
+.sidebar-bottom {
+  flex: none;
+  margin-top: auto;
+  padding-top: var(--sp-1);
+}
+
+/* A single sidebar button (hamburger, nav item, gear). */
+.sidebar-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: calc(100% - 8px);
+  height: 36px;
+  margin: 2px 4px;
+  padding: 0;
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background-color 0.08s ease, color 0.08s ease;
+}
+
+/* Fixed-width icon slot keeps icons aligned at both widths. */
+.sidebar-item .icon {
+  flex: none;
+  width: calc(var(--sidebar-w) - 8px);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-item .icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Labels: hidden in collapsed rail, revealed when expanded. */
+.sidebar-item .label {
+  flex: 1 1 auto;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-normal);
+  text-align: left;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#sidebar.expanded .sidebar-item .label {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Hover / pressed states. */
+.sidebar-item:hover {
+  background: var(--row-hover);
+  color: var(--text-primary);
+}
+.sidebar-item:active {
+  background: var(--row-selected);
+}
+
+/* Active (current view) — accent left bar + raised surface. */
+.sidebar-item.active {
+  background: var(--row-selected);
+  color: var(--text-primary);
+}
+.sidebar-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+}
+
+/* The hamburger never shows an active bar. */
+.sidebar-hamburger.sidebar-item.active::before {
+  display: none;
+}
+
+/* ============================================================
+   Content — the active view scrolls here
+   ============================================================ */
+#content {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-content);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Generic focus ring for keyboard users. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--r-sm);
+}

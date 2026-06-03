@@ -1,0 +1,231 @@
+/* Performance page — styles the DOM emitted by js/views/performance.js.
+   Class names (from performance.js):
+   .perf > .perf-list + .perf-panel
+   .perf-card > .perf-card-graph > canvas.perf-card-spark
+              + .perf-card-text  > .perf-card-name / .perf-card-sub / .perf-card-value
+   .perf-panel > .perf-panel-head(.perf-panel-title/.perf-panel-subtitle)
+               + .perf-graph-label(span + .perf-graph-scale)
+               + .perf-core-grid > .perf-core-cell > canvas.perf-core-spark
+               + .perf-chart > canvas.perf-chart-canvas
+               + .perf-time-row
+               + .perf-stats > .perf-stat(.perf-stat-big) > .perf-stat-label/.perf-stat-value
+   Canvases need explicit pixel size — the chart classes read clientWidth/Height. */
+
+.perf {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-content);
+}
+
+/* ---- Left list of metric cards ---- */
+.perf-list {
+  width: 290px;
+  flex: 0 0 290px;
+  overflow-y: auto;
+  padding: var(--sp-2) var(--sp-2) var(--sp-4);
+  border-right: 1px solid var(--border);
+  background: var(--bg-content);
+}
+
+.perf-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: 62px;
+  padding: 0 var(--sp-2);
+  margin-bottom: var(--sp-1);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  position: relative;
+  border: 1px solid transparent;
+}
+.perf-card:hover { background: var(--row-hover); }
+.perf-card.selected {
+  background: var(--row-selected);
+  border-color: var(--border-subtle);
+}
+.perf-card.selected::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 14px; bottom: 14px;
+  width: 3px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+}
+
+.perf-card-graph {
+  width: 76px;
+  height: 42px;
+  flex: 0 0 76px;
+  border: 1px solid var(--graph-axis);
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+}
+.perf-card-spark { display: block; width: 100%; height: 100%; }
+
+.perf-card-text { flex: 1 1 auto; min-width: 0; }
+.perf-card-name {
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  font-weight: var(--fw-medium);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.perf-card-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.perf-card-value {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+
+/* ---- Right detail panel ---- */
+.perf-panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-6) var(--sp-6);
+}
+
+.perf-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+.perf-panel-title {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+.perf-panel-subtitle {
+  font-size: var(--fs-md);
+  color: var(--text-tertiary);
+  text-align: right;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.perf-graph-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  margin-bottom: var(--sp-1);
+}
+
+/* ---- Big single line chart (mem/disk/net/gpu) ---- */
+.perf-chart {
+  width: 100%;
+  height: 260px;
+  /* The grid + frame are drawn on the canvas itself (lineChart.js) so they stay
+     pixel-aligned and square — no CSS background grid to fight with. */
+  position: relative;
+}
+.perf-chart-canvas { display: block; width: 100%; height: 100%; }
+
+.perf-time-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--sp-1);
+}
+
+/* ---- CPU per-core grid ---- */
+.perf-core-grid {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  /* grid-template-columns is set inline by performance.js */
+}
+.perf-core-cell {
+  height: 78px;
+  border: 1px solid var(--graph-axis);
+  background: rgba(255,255,255,0.02);
+  overflow: hidden;
+}
+.perf-core-spark { display: block; width: 100%; height: 100%; }
+
+/* ---- Stats grid ---- */
+.perf-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--sp-3) var(--sp-5);
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--divider);
+  align-content: start;
+}
+.perf-stat { display: flex; flex-direction: column; min-width: 0; }
+.perf-stat-label {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  margin-bottom: 1px;
+}
+.perf-stat-value {
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.perf-stat-big .perf-stat-value {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-medium);
+}
+
+/* ---- Top processes list ---- */
+.perf-top {
+  margin-top: var(--sp-6);
+  max-width: 560px;
+}
+.perf-top-head {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--sp-2);
+}
+.perf-top-list { display: flex; flex-direction: column; }
+.perf-top-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: 32px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+}
+.perf-top-row:hover { background: var(--row-hover); }
+.perf-top-ic {
+  flex: 0 0 18px;
+  width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+}
+.perf-top-ic .app-icon {
+  width: 18px; height: 18px;
+  object-fit: contain;
+  opacity: 0; transition: opacity 0.12s ease;
+}
+.perf-top-ic .app-icon.loaded { opacity: 1; }
+.perf-top-dot {
+  width: 10px; height: 10px; border-radius: 3px;
+  background: var(--text-disabled);
+}
+.perf-top-name {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text-primary); font-size: var(--fs-md);
+}
+.perf-top-val {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md);
+}
+.perf-top-empty { color: var(--text-tertiary); font-size: var(--fs-sm); padding: var(--sp-2); }

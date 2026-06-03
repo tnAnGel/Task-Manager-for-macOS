@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+  <title>Task Manager</title>
+
+  <!-- Styles: tokens first (design system), then layers -->
+  <link rel="stylesheet" href="styles/tokens.css" />
+  <link rel="stylesheet" href="styles/layout.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <link rel="stylesheet" href="styles/processes.css" />
+  <link rel="stylesheet" href="styles/performance.css" />
+  <link rel="stylesheet" href="styles/views.css" />
+</head>
+<body>
+  <!-- Custom frameless titlebar -->
+  <header id="titlebar"></header>
+
+  <div id="shell">
+    <!-- Left navigation rail -->
+    <nav id="sidebar"></nav>
+
+    <!-- Active view renders here -->
+    <main id="content"></main>
+  </div>
+
+  <!-- Context menu / flyout root -->
+  <div id="overlay-root"></div>
+
+  <!-- Scripts: classic (no modules). Load order matters:
+       format -> state -> charts -> components -> views -> app -->
+  <script src="js/format.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/icons.js"></script>
+
+  <script src="js/components/sparkline.js"></script>
+  <script src="js/components/lineChart.js"></script>
+  <script src="js/components/contextMenu.js"></script>
+  <script src="js/components/titlebar.js"></script>
+
+  <script src="js/views/processes.js"></script>
+  <script src="js/views/performance.js"></script>
+  <script src="js/views/details.js"></script>
+  <script src="js/views/startup.js"></script>
+  <script src="js/views/users.js"></script>
+  <script src="js/views/services.js"></script>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

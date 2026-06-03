@@ -1,0 +1,97 @@
+/* Design system — Windows 11 Task Manager (dark). The single source of truth for
+   colors, spacing, type. Other CSS files MUST use these variables, not literals. */
+
+:root {
+  /* ---- Surfaces (Mica dark) ---- */
+  --bg-app:        #202020;   /* window background */
+  --bg-sidebar:    #2b2b2b;   /* left nav rail */
+  --bg-titlebar:   #2b2b2b;   /* custom titlebar */
+  --bg-content:    #272727;   /* main content surface */
+  --bg-elevated:   #2d2d2d;   /* cards, command bar */
+  --bg-input:      #333333;   /* search box, fields */
+  --bg-menu:       #2c2c2c;   /* context menu / flyout */
+  --bg-header:     #272727;   /* table header */
+
+  /* ---- Rows / interaction ---- */
+  --row-hover:     #323232;
+  --row-selected:  #393939;
+  --row-selected-accent: var(--accent);
+  --row-stripe:    transparent;
+  --group-header:  #2a2a2a;
+
+  /* ---- Borders / dividers ---- */
+  --border:        #1d1d1d;
+  --border-subtle: #383838;
+  --divider:       #333333;
+
+  /* ---- Text ---- */
+  --text-primary:   #ffffff;
+  --text-secondary: #cfcfcf;
+  --text-tertiary:  #a0a0a0;
+  --text-disabled:  #6f6f6f;
+
+  /* ---- Accent (Win11 dark default blue) ---- */
+  --accent:         #60cdff;
+  --accent-strong:  #4cc2ff;
+  --accent-pressed: #429ce3;
+  --accent-text:    #000000;   /* text on accent fill */
+  --focus-ring:     #60cdff;
+
+  /* ---- Status / semantic ---- */
+  --danger:        #ff99a4;
+  --danger-bg:     #442726;
+  --success:       #6ccb5f;
+  --warning:       #fce100;
+
+  /* ---- Performance graph colors (per metric, vivid Win11 palette) ---- */
+  --graph-cpu:     #2f9be0;   /* bright teal-blue */
+  --graph-cpu-fill: rgba(47,155,224,0.42);
+  --graph-mem:     #b265e6;   /* vivid purple */
+  --graph-mem-fill: rgba(178,101,230,0.42);
+  --graph-disk:    #34c759;   /* vivid green */
+  --graph-disk-fill: rgba(52,199,89,0.40);
+  --graph-net:     #ff9f3a;   /* vivid orange */
+  --graph-net-fill: rgba(255,159,58,0.42);
+  --graph-gpu:     #e85fd0;   /* vivid magenta */
+  --graph-gpu-fill: rgba(232,95,208,0.42);
+  --graph-grid:    rgba(255,255,255,0.07);
+  --graph-axis:    rgba(255,255,255,0.16);
+
+  /* ---- Heatmap for usage cells (low -> high) ----
+     Windows tints data cells by load. Use these as rgba fills via the heat() helper. */
+  --heat-1: rgba(255, 196, 87, 0.045); /* barely-there */
+  --heat-2: rgba(255, 184, 77, 0.09);
+  --heat-3: rgba(255, 160, 66, 0.16);
+  --heat-4: rgba(255, 130, 64, 0.26);
+  --heat-5: rgba(255, 96,  66, 0.38);  /* hot */
+  --heat-hue-low:  48;   /* yellow */
+  --heat-hue-high: 8;    /* red-orange */
+
+  /* ---- Spacing scale ---- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px;
+
+  /* ---- Radius ---- */
+  --r-sm: 4px; --r-md: 6px; --r-lg: 8px; --r-pill: 999px;
+
+  /* ---- Typography ---- */
+  --font-ui: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  --font-num: 'Segoe UI Variable', 'Segoe UI', ui-monospace, system-ui, sans-serif;
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-lg: 15px; --fs-xl: 18px; --fs-2xl: 22px;
+  --fw-normal: 400; --fw-medium: 500; --fw-semibold: 600;
+
+  /* ---- Layout metrics ---- */
+  --titlebar-h: 40px;
+  --sidebar-w: 48px;          /* collapsed icon rail */
+  --sidebar-w-expanded: 220px;
+  --commandbar-h: 48px;
+  --row-h: 30px;
+  --shadow-flyout: 0 8px 24px rgba(0,0,0,0.45);
+}
+
+/* Heat helper classes (value buckets) — apply to usage <td>. JS picks the bucket. */
+.heat-0 { background: transparent; }
+.heat-1 { background: var(--heat-1); }
+.heat-2 { background: var(--heat-2); }
+.heat-3 { background: var(--heat-3); }
+.heat-4 { background: var(--heat-4); }
+.heat-5 { background: var(--heat-5); }

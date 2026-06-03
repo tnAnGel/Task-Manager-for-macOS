@@ -1,0 +1,45 @@
+{
+  "name": "taskmanager-mac",
+  "productName": "Task Manager",
+  "version": "1.0.0",
+  "description": "A Windows-style Task Manager for macOS",
+  "main": "src/main/main.js",
+  "author": "Free Software",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --mac",
+    "dist:arm64": "electron-builder --mac --arm64",
+    "dist:x64": "electron-builder --mac --x64",
+    "dist:universal": "electron-builder --mac --universal",
+    "dist:all": "electron-builder --mac --arm64 --x64"
+  },
+  "dependencies": {
+    "systeminformation": "^5.23.5"
+  },
+  "devDependencies": {
+    "electron": "^42.3.2",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.taskmanager.mac",
+    "productName": "Task Manager",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.icns"
+    }
+  }
+}

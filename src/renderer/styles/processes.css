@@ -1,0 +1,691 @@
+/* processes.css — Processes & Details tables (Windows 11 Task Manager, dark).
+   Uses ONLY tokens from tokens.css. No hardcoded colors. */
+
+/* ============================================================
+   Page scaffold
+   ============================================================ */
+.proc-page,
+.details-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-content);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+}
+
+/* ============================================================
+   Command bar
+   ============================================================ */
+.commandbar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--sp-1);
+  height: var(--commandbar-h);
+  padding: 0 var(--sp-3);
+  background: var(--bg-content);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Buttons push to the right by default (Win11 places actions right-aligned). */
+.commandbar .cmd-spacer {
+  flex: 1 1 auto;
+}
+
+.cmd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-normal);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  transition: background 90ms ease, color 90ms ease;
+}
+
+.cmd-btn:hover {
+  background: var(--row-hover);
+  color: var(--text-primary);
+}
+
+.cmd-btn:active {
+  background: var(--row-selected);
+}
+
+.cmd-btn:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+  background: transparent;
+}
+
+.cmd-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.cmd-btn .cmd-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.cmd-btn .cmd-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+/* "End task" — primary destructive emphasis variant. */
+.cmd-btn.cmd-end-task {
+  color: var(--text-primary);
+}
+
+.cmd-btn.cmd-end-task .cmd-icon {
+  color: var(--danger);
+}
+
+.cmd-btn.cmd-end-task:hover {
+  background: var(--danger-bg);
+  color: var(--text-primary);
+}
+
+.cmd-btn.cmd-end-task:disabled .cmd-icon {
+  color: var(--text-disabled);
+}
+
+/* ============================================================
+   Table container (scrolls; header stays pinned)
+   ============================================================ */
+.proc-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ============================================================
+   Processes table
+   ============================================================ */
+.proc-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--fs-md);
+  color: var(--text-secondary);
+}
+
+/* Tabular numbers everywhere so usage columns align */
+.proc-table,
+.details-table {
+  font-variant-numeric: tabular-nums;
+  -webkit-font-feature-settings: "tnum" 1;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---- Header row (sticky) ---- */
+.proc-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 34px;
+  padding: 0 var(--sp-3);
+  background: var(--bg-header);
+  color: var(--text-tertiary);
+  font-weight: var(--fw-normal);
+  font-size: var(--fs-sm);
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  user-select: none;
+}
+
+.proc-table thead th.col-name {
+  text-align: left;
+}
+
+.proc-table thead th.col-status {
+  text-align: left;
+}
+
+.proc-table thead th:hover {
+  color: var(--text-secondary);
+  background: var(--row-hover);
+}
+
+/* Header cell internal layout: label + aggregate % + caret */
+.proc-table thead th .th-inner {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--sp-1);
+}
+
+.proc-table thead th.col-name .th-inner,
+.proc-table thead th.col-status .th-inner {
+  justify-content: flex-start;
+}
+
+.proc-table thead th .th-label {
+  color: var(--text-tertiary);
+}
+
+/* The aggregate % shown under/next to usage headers (e.g. "5%", "27%") */
+.proc-table thead th .th-agg {
+  display: block;
+  width: 100%;
+  text-align: right;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.1;
+}
+
+.proc-table thead th .th-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 1.15;
+  width: 100%;
+}
+
+.proc-table thead th.col-name .th-stack,
+.proc-table thead th.col-status .th-stack {
+  align-items: flex-start;
+}
+
+/* Sort caret */
+.proc-table thead th .sort-caret {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 2px;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.proc-table thead th.sorted .sort-caret {
+  opacity: 1;
+}
+
+.proc-table thead th .sort-caret svg {
+  width: 10px;
+  height: 10px;
+  fill: var(--accent);
+  display: block;
+  transition: transform 120ms ease;
+}
+
+.proc-table thead th.sort-asc .sort-caret svg {
+  transform: rotate(180deg);
+}
+
+.proc-table thead th.sorted .th-label,
+.proc-table thead th.sorted .th-agg {
+  color: var(--text-primary);
+}
+
+/* ---- Column widths ---- */
+.proc-table col.col-name    { width: auto; }
+.proc-table col.col-status  { width: 96px; }
+.proc-table col.col-usage   { width: 92px; }
+
+/* ============================================================
+   Group header rows (Apps / Background processes / System processes)
+   ============================================================ */
+.proc-table tr.group-row > td {
+  height: var(--row-h);
+  padding: 0 var(--sp-3);
+  background: var(--group-header);
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+
+.proc-table tr.group-row:hover > td {
+  background: var(--row-hover);
+}
+
+.proc-table tr.group-row .group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* Expander triangle for group rows */
+.proc-table .group-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform 120ms ease;
+}
+
+.proc-table .group-caret svg {
+  width: 9px;
+  height: 9px;
+  fill: currentColor;
+  display: block;
+}
+
+/* collapsed group => caret points right (rotate the default down-pointing one) */
+.proc-table tr.group-row.collapsed .group-caret {
+  transform: rotate(-90deg);
+}
+
+.proc-table tr.group-row .group-count {
+  margin-left: var(--sp-1);
+  color: var(--text-tertiary);
+  font-weight: var(--fw-normal);
+  font-size: var(--fs-sm);
+}
+
+/* The usage cells on a group row carry the group aggregate (faint heat ok) */
+.proc-table tr.group-row td.usage {
+  text-align: right;
+  color: var(--text-secondary);
+  font-weight: var(--fw-medium);
+}
+
+/* ============================================================
+   Data rows
+   ============================================================ */
+.proc-table tbody tr.proc-row > td {
+  height: var(--row-h);
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid transparent;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.proc-table tbody tr.proc-row {
+  cursor: default;
+}
+
+.proc-table tbody tr.proc-row:hover > td {
+  background: var(--row-hover);
+}
+
+/* Selected row: subtle fill + accent left border */
+.proc-table tbody tr.proc-row.selected > td {
+  background: var(--row-selected);
+}
+
+.proc-table tbody tr.proc-row.selected > td.col-name {
+  box-shadow: inset 3px 0 0 0 var(--row-selected-accent);
+}
+
+/* When selected, hover should keep the selected fill */
+.proc-table tbody tr.proc-row.selected:hover > td {
+  background: var(--row-selected);
+}
+
+/* Collapsed group hides its children rows */
+.proc-table tbody tr.proc-row.hidden {
+  display: none;
+}
+
+/* ---- Name cell: icon dot + label, indented under group ---- */
+.proc-table td.col-name {
+  text-align: left;
+  color: var(--text-primary);
+  font-weight: var(--fw-normal);
+}
+
+.proc-table td.col-name .name-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  /* indent so the name aligns past the group caret column */
+  padding-left: 22px;
+  min-width: 0;
+}
+
+/* App icon / status dot placeholder */
+.proc-table td.col-name .app-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: var(--r-sm);
+  color: var(--text-tertiary);
+}
+
+.proc-table td.col-name .app-dot svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.proc-table td.col-name .name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Sub-process / expand chevron (e.g. grouped helper children) */
+.proc-table td.col-name .row-expander {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-left: -18px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.proc-table td.col-name .row-expander svg {
+  width: 8px;
+  height: 8px;
+  fill: currentColor;
+  display: block;
+}
+
+.proc-table tbody tr.proc-row.expanded td.col-name .row-expander {
+  transform: rotate(0deg);
+}
+
+.proc-table tbody tr.proc-row.collapsed td.col-name .row-expander {
+  transform: rotate(-90deg);
+}
+
+/* ---- Status cell ---- */
+.proc-table td.col-status {
+  text-align: left;
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+}
+
+.proc-table td.col-status .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--text-tertiary);
+}
+
+.proc-table td.col-status .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+.proc-table td.col-status .status-badge.suspended .status-dot {
+  background: var(--warning);
+}
+
+/* ---- Usage cells (CPU / Memory / Disk / Network / GPU) ---- */
+.proc-table td.usage {
+  text-align: right;
+  color: var(--text-secondary);
+  /* full-cell tint from .heat-N — no rounding so the tint reads as a band */
+}
+
+.proc-table tbody tr.proc-row td.usage {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Keep heat tint visible over hover/selected by drawing it as a layered bg.
+   The .heat-N class sets `background`; on hover we lighten via a top layer. */
+.proc-table tbody tr.proc-row:hover > td.usage[class*="heat-"] {
+  background-image: linear-gradient(var(--row-hover), var(--row-hover));
+  background-blend-mode: lighten;
+}
+
+.proc-table tbody tr.proc-row.selected > td.usage[class*="heat-"] {
+  background-image: linear-gradient(var(--row-selected), var(--row-selected));
+  background-blend-mode: lighten;
+}
+
+/* Dim "—" placeholders for unavailable metrics */
+.proc-table td.usage.empty {
+  color: var(--text-disabled);
+}
+
+/* processes.js actually emits usage cells as <td class="num heat-N">.
+   Mirror the .usage styling onto .num so alignment + heat-blend work. */
+.proc-table td.num {
+  text-align: right;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.proc-table td.num.empty { color: var(--text-disabled); }
+.proc-table tbody tr.proc-row:hover > td.num[class*="heat-"] {
+  background-image: linear-gradient(var(--row-hover), var(--row-hover));
+  background-blend-mode: lighten;
+}
+.proc-table tbody tr.proc-row.selected > td.num[class*="heat-"] {
+  background-image: linear-gradient(var(--row-selected), var(--row-selected));
+  background-blend-mode: lighten;
+}
+
+/* Efficiency-mode leaf indicator */
+.proc-table tbody tr.proc-row.efficiency td.col-name .name-text {
+  color: var(--text-secondary);
+}
+
+.proc-table tbody tr.proc-row.efficiency td.col-name .name-text::after {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: var(--sp-1);
+  vertical-align: -2px;
+  background: var(--success);
+  -webkit-mask: var(--leaf-mask, none) center / contain no-repeat;
+  mask: var(--leaf-mask, none) center / contain no-repeat;
+  opacity: 0.85;
+}
+
+/* Empty / loading state */
+.proc-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 160px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-md);
+}
+
+/* ============================================================
+   Details table variant — high-density, PID + command line
+   ============================================================ */
+.details-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.details-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 30px;
+  padding: 0 var(--sp-2);
+  background: var(--bg-header);
+  color: var(--text-tertiary);
+  font-weight: var(--fw-normal);
+  font-size: var(--fs-sm);
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  user-select: none;
+}
+
+.details-table thead th.col-dname,
+.details-table thead th.col-user,
+.details-table thead th.col-status,
+.details-table thead th.col-command {
+  text-align: left;
+}
+
+.details-table thead th:hover {
+  color: var(--text-secondary);
+  background: var(--row-hover);
+}
+
+.details-table thead th .sort-caret {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 2px;
+  opacity: 0;
+  vertical-align: middle;
+}
+
+.details-table thead th.sorted .sort-caret { opacity: 1; }
+.details-table thead th .sort-caret svg {
+  width: 10px; height: 10px; fill: var(--accent); display: block;
+}
+.details-table thead th.sort-asc .sort-caret svg { transform: rotate(180deg); }
+.details-table thead th.sorted .th-label { color: var(--text-primary); }
+
+/* Detail column widths */
+.details-table col.col-dname   { width: 200px; }
+.details-table col.col-pid     { width: 72px; }
+.details-table col.col-status  { width: 90px; }
+.details-table col.col-user    { width: 110px; }
+.details-table col.col-usage   { width: 78px; }
+.details-table col.col-command { width: auto; }
+
+.details-table tbody tr {
+  height: 24px;            /* denser than processes --row-h */
+  cursor: default;
+}
+
+.details-table tbody tr > td {
+  padding: 0 var(--sp-2);
+  border-bottom: 1px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.details-table tbody tr:hover > td {
+  background: var(--row-hover);
+}
+
+.details-table tbody tr.selected > td {
+  background: var(--row-selected);
+}
+
+.details-table tbody tr.selected > td.col-dname {
+  box-shadow: inset 3px 0 0 0 var(--row-selected-accent);
+}
+
+.details-table tbody tr.selected:hover > td {
+  background: var(--row-selected);
+}
+
+/* Name cell with small icon */
+.details-table td.col-dname {
+  text-align: left;
+  color: var(--text-primary);
+}
+
+.details-table td.col-dname .name-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.details-table td.col-dname .app-dot {
+  width: 14px; height: 14px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary);
+}
+.details-table td.col-dname .app-dot svg { width: 12px; height: 12px; display: block; }
+
+.details-table td.col-dname .name-text {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+
+/* PID right-aligned, tabular */
+.details-table td.col-pid {
+  text-align: right;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.details-table td.col-status {
+  text-align: left;
+  color: var(--text-tertiary);
+}
+
+.details-table td.col-user {
+  text-align: left;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.details-table td.col-usage {
+  text-align: right;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.details-table td.col-usage.empty { color: var(--text-disabled); }
+
+/* Command line — single line ellipsis, monospace-ish, dim */
+.details-table td.col-command {
+  text-align: left;
+  color: var(--text-tertiary);
+  font-family: var(--font-num);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 0;            /* with table-layout:fixed forces ellipsis */
+}
+
+.details-table tbody tr:hover td.col-command,
+.details-table tbody tr.selected td.col-command {
+  color: var(--text-secondary);
+}
+
+/* Heat tint blending for details usage cells too */
+.details-table tbody tr:hover > td.col-usage[class*="heat-"] {
+  background-image: linear-gradient(var(--row-hover), var(--row-hover));
+  background-blend-mode: lighten;
+}
+.details-table tbody tr.selected > td.col-usage[class*="heat-"] {
+  background-image: linear-gradient(var(--row-selected), var(--row-selected));
+  background-blend-mode: lighten;
+}
