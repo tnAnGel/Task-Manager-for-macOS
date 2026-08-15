@@ -45,6 +45,8 @@ window.TM = window.TM || {};
       sortKey: 'cpu',
       sortDir: 'desc',
       search: '',
+      // Category rows default expanded. Per-app trees use keys like
+      // `app:/Applications/Foo.app` and default collapsed (absent === false).
       expanded: { apps: true, background: true, system: true }
     },
 

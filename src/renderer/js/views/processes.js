@@ -62,8 +62,16 @@ TM.views = TM.views || {};
     '<rect x="2.5" y="2.5" width="11" height="11" rx="2.5" opacity="0.6"/>' +
     '<circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none" opacity="0.6"/></svg>';
 
-  // Name cell inner: app icon (lazy-loaded) or fallback glyph + the process name.
-  function nameCellInner(proc) {
+  // Name cell inner: optional expander + app icon (lazy-loaded) + process name.
+  function nameCellInner(proc, opts) {
+    opts = opts || {};
+    var expander;
+    if (opts.childCount > 0) {
+      expander = '<span class="row-expander" title="Show processes" role="button" ' +
+        'aria-expanded="' + (opts.expanded ? 'true' : 'false') + '">' + ICON_CHEV + '</span>';
+    } else {
+      expander = '<span class="row-expander-spacer"></span>';
+    }
     var iconHtml;
     if (proc.iconPath) {
       var cached = (TM.icons && TM.icons.cached) ? TM.icons.cached(proc.iconPath) : undefined;
@@ -74,7 +82,7 @@ TM.views = TM.views || {};
     } else {
       iconHtml = '<span class="app-glyph">' + ICON_DOT + '</span>';
     }
-    return '<span class="tm-name-inner">' + iconHtml +
+    return '<span class="tm-name-inner">' + expander + iconHtml +
       '<span class="tm-name-text">' + escapeHtml(proc.name || ('PID ' + proc.pid)) + '</span></span>';
   }
 
@@ -139,8 +147,16 @@ TM.views = TM.views || {};
       'line-height:var(--row-h);}',
       '.tm-proc-row td.num{text-align:right;font-family:var(--font-num);',
       'font-variant-numeric:tabular-nums;color:var(--text-secondary);}',
-      '.tm-proc-row td.name{padding-left:26px;color:var(--text-primary);}',
+      '.tm-proc-row td.name{padding-left:12px;color:var(--text-primary);}',
+      '.tm-proc-row.child td.name .tm-name-inner{padding-left:18px;}',
       '.tm-name-inner{display:flex;align-items:center;gap:8px;min-width:0;}',
+      '.tm-proc-row .row-expander{display:inline-flex;align-items:center;justify-content:center;',
+      'width:14px;height:14px;flex:0 0 14px;color:var(--text-tertiary);cursor:pointer;',
+      'transition:transform .12s ease;}',
+      '.tm-proc-row .row-expander .tm-chev{width:8px;height:8px;}',
+      '.tm-proc-row.expanded .row-expander{transform:rotate(90deg);}',
+      '.tm-proc-row.collapsed .row-expander{transform:rotate(0deg);}',
+      '.tm-proc-row .row-expander-spacer{display:inline-block;width:14px;height:14px;flex:0 0 14px;}',
       '.app-icon{width:16px;height:16px;flex:0 0 16px;object-fit:contain;',
       'opacity:0;transition:opacity .12s ease;}',
       '.app-icon.loaded{opacity:1;}',
@@ -255,6 +271,86 @@ TM.views = TM.views || {};
     return isFinite(n) ? n : 0;
   }
 
+  function compareNamePid(a, b) {
+    var an = (a.name || '').toLowerCase();
+    var bn = (b.name || '').toLowerCase();
+    var cmp = an.localeCompare(bn);
+    if (cmp === 0) cmp = num(a.pid) - num(b.pid);
+    return cmp;
+  }
+
+  function isHelperProc(p) {
+    var hay = ((p.name || '') + ' ' + (p.command || '') + ' ' + (p.path || '')).toLowerCase();
+    return /helper/.test(hay) || / --type=/.test(' ' + (p.command || ''));
+  }
+
+  // Group identity:
+  //   app:<bundlePath>  — same .app (helpers pulled in via iconPath or ppid-walk)
+  //   name:<section>:<name> — exact display name within Apps / Background / System
+  // Section is the process's own type so a background daemon named like an app
+  // is not pulled into Apps. ppid-walk is helpers-only (node/zsh do not nest
+  // under Cursor); same-name copies still group within their own section.
+  function sectionKey(p) {
+    if (p && p.type === 'app') return 'app';
+    if (p && p.type === 'system') return 'system';
+    return 'background';
+  }
+
+  function resolveGroupKey(p, byPid) {
+    if (p.iconPath) return 'app:' + p.iconPath;
+    if (isHelperProc(p)) {
+      var seen = {};
+      var cur = p;
+      while (cur && cur.ppid && !seen[cur.pid]) {
+        seen[cur.pid] = true;
+        var parent = byPid[cur.ppid];
+        if (!parent) break;
+        if (parent.iconPath) return 'app:' + parent.iconPath;
+        cur = parent;
+      }
+    }
+    return 'name:' + sectionKey(p) + ':' + (p.name || ('PID ' + p.pid));
+  }
+
+  function clusterSectionType(members) {
+    var hasApp = false;
+    var allSystem = true;
+    for (var i = 0; i < members.length; i++) {
+      var t = members[i].type;
+      if (t === 'app') hasApp = true;
+      if (t !== 'system') allSystem = false;
+    }
+    if (hasApp) return 'app';
+    if (allSystem) return 'system';
+    return 'background';
+  }
+
+  function pickParent(members) {
+    var best = members[0];
+    var bestScore = -1;
+    for (var i = 0; i < members.length; i++) {
+      var p = members[i];
+      var score = 0;
+      if (p.type === 'app') score += 4;
+      if (!isHelperProc(p)) score += 2;
+      if (p.bundleName && p.name === p.bundleName) score += 1;
+      if (score > bestScore || (score === bestScore && num(p.pid) < num(best.pid))) {
+        best = p;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  function procMatchesQuery(p, q) {
+    if (!q) return true;
+    if ((p.name || '').toLowerCase().indexOf(q) !== -1) return true;
+    if ((p.bundleName || '').toLowerCase().indexOf(q) !== -1) return true;
+    if (String(p.pid).indexOf(q) !== -1) return true;
+    if ((p.command || '').toLowerCase().indexOf(q) !== -1) return true;
+    return false;
+  }
+
   // ---- Aggregate header percent for numeric columns ------------------------
   function aggForColumn(statKind, stats) {
     if (!stats) return null;
@@ -354,6 +450,12 @@ TM.views = TM.views || {};
       var tbody = document.createElement('tbody');
       // Event delegation: select / context menu / group toggle.
       tbody.addEventListener('click', function (e) {
+        var expander = e.target.closest ? e.target.closest('.row-expander') : null;
+        if (expander) {
+          var expRow = expander.closest ? expander.closest('.tm-proc-row') : null;
+          if (expRow) self._toggleAppGroup(expRow.getAttribute('data-group-key'));
+          return;
+        }
         var group = e.target.closest ? e.target.closest('.tm-grouprow') : null;
         if (group) { self._toggleGroup(group.getAttribute('data-group')); return; }
         var row = e.target.closest ? e.target.closest('.tm-proc-row') : null;
@@ -394,6 +496,8 @@ TM.views = TM.views || {};
     unmount: function () {
       this._mounted = false;
       this._root = this._tbody = this._thead = this._wrap = this._endBtn = null;
+      this._groupPids = {};
+      this._flatItems = [];
     },
 
     // ---- Per-tick render ----
@@ -447,26 +551,90 @@ TM.views = TM.views || {};
       var procs = Array.isArray(state.data.processes) ? state.data.processes : [];
       this._stats = state.data.stats;
       this._selectedPid = ui.selectedPid;
+      this._groupPids = {};
 
       var q = (ui.search || '').trim().toLowerCase();
-      var filtered = procs;
-      if (q) {
-        filtered = procs.filter(function (p) {
-          if (!p) return false;
-          if ((p.name || '').toLowerCase().indexOf(q) !== -1) return true;
-          if (String(p.pid).indexOf(q) !== -1) return true;
-          if ((p.command || '').toLowerCase().indexOf(q) !== -1) return true;
-          return false;
-        });
+
+      var byPid = {};
+      for (var i = 0; i < procs.length; i++) {
+        if (procs[i]) byPid[procs[i].pid] = procs[i];
+      }
+
+      var clusters = {};
+      var clusterKeys = [];
+      for (var pi = 0; pi < procs.length; pi++) {
+        var p = procs[pi];
+        if (!p) continue;
+        var key = resolveGroupKey(p, byPid);
+        if (!clusters[key]) {
+          clusters[key] = [];
+          clusterKeys.push(key);
+        }
+        clusters[key].push(p);
       }
 
       var buckets = { app: [], background: [], system: [] };
-      for (var i = 0; i < filtered.length; i++) {
-        var p = filtered[i];
-        if (!p) continue;
-        var t = p.type;
-        if (t !== 'app' && t !== 'background' && t !== 'system') t = 'background';
-        buckets[t].push(p);
+      var matchedAny = false;
+
+      for (var ck = 0; ck < clusterKeys.length; ck++) {
+        var ckey = clusterKeys[ck];
+        var members = clusters[ckey];
+        if (q) {
+          var anyMatch = false;
+          for (var mi = 0; mi < members.length; mi++) {
+            if (procMatchesQuery(members[mi], q)) { anyMatch = true; break; }
+          }
+          if (!anyMatch) continue;
+        }
+        matchedAny = true;
+
+        var parent = pickParent(members);
+        var sumCpu = 0, sumMem = 0, sumNet = 0, sumMemPct = 0;
+        var pids = [];
+        for (var s = 0; s < members.length; s++) {
+          sumCpu += num(members[s].cpu);
+          sumMem += num(members[s].memBytes);
+          sumNet += num(members[s].netBytesSec);
+          sumMemPct += num(members[s].memPercent);
+          pids.push(members[s].pid);
+        }
+
+        var display = {
+          pid: parent.pid,
+          ppid: parent.ppid,
+          name: (ckey.indexOf('app:') === 0 && parent.bundleName)
+            ? parent.bundleName
+            : parent.name,
+          cpu: sumCpu,
+          memBytes: sumMem,
+          memPercent: sumMemPct,
+          netBytesSec: sumNet,
+          state: parent.state,
+          path: parent.path,
+          iconPath: parent.iconPath,
+          command: parent.command,
+          type: parent.type,
+          bundleName: parent.bundleName
+        };
+
+        var children = [];
+        for (var ch = 0; ch < members.length; ch++) {
+          if (members[ch].pid !== parent.pid) children.push(members[ch]);
+        }
+        children.sort(compareNamePid);
+
+        var hasKids = children.length > 0;
+        var treeOpen = hasKids && (!!q || ui.expanded[ckey] === true);
+        if (hasKids) this._groupPids[parent.pid] = pids;
+
+        var section = clusterSectionType(members);
+        buckets[section].push({
+          proc: display,
+          children: children,
+          hasKids: hasKids,
+          expanded: treeOpen,
+          groupKey: ckey
+        });
       }
 
       var sortKey = ui.sortKey || 'cpu';
@@ -476,24 +644,48 @@ TM.views = TM.views || {};
       for (var g = 0; g < GROUPS.length; g++) {
         var grp = GROUPS[g];
         var listG = buckets[grp.type];
-        listG.sort(function (a, b) { return compareProcs(a, b, sortKey, sortDir); });
+        listG.sort(function (a, b) { return compareProcs(a.proc, b.proc, sortKey, sortDir); });
         var expanded = ui.expanded[grp.key] !== false;
-        var sumCpu = 0, sumMem = 0, sumNet = 0;
-        for (var s = 0; s < listG.length; s++) {
-          sumCpu += num(listG[s].cpu);
-          sumMem += num(listG[s].memBytes);
-          sumNet += num(listG[s].netBytesSec);
+        var gCpu = 0, gMem = 0, gNet = 0;
+        for (var gs = 0; gs < listG.length; gs++) {
+          gCpu += num(listG[gs].proc.cpu);
+          gMem += num(listG[gs].proc.memBytes);
+          gNet += num(listG[gs].proc.netBytesSec);
         }
         items.push({ kind: 'group', grp: grp, count: listG.length, expanded: expanded,
-          sumCpu: sumCpu, sumMem: sumMem, sumNet: sumNet });
+          sumCpu: gCpu, sumMem: gMem, sumNet: gNet });
         if (expanded) {
-          for (var r = 0; r < listG.length; r++) items.push({ kind: 'proc', proc: listG[r] });
+          for (var r = 0; r < listG.length; r++) {
+            var row = listG[r];
+            items.push({
+              kind: 'proc',
+              proc: row.proc,
+              depth: 0,
+              childCount: row.hasKids ? row.children.length : 0,
+              expanded: row.expanded,
+              groupKey: row.groupKey
+            });
+            if (row.expanded) {
+              for (var cr = 0; cr < row.children.length; cr++) {
+                items.push({
+                  kind: 'proc',
+                  proc: row.children[cr],
+                  depth: 1,
+                  childCount: 0,
+                  expanded: false,
+                  groupKey: ''
+                });
+              }
+            }
+          }
         }
       }
       this._flatItems = items;
-      this._emptyMsg = (filtered.length === 0)
-        ? (q ? 'No processes match “' + escapeHtml(ui.search) + '”' : 'No processes.')
-        : null;
+      this._emptyMsg = (!matchedAny && procs.length === 0)
+        ? 'No processes.'
+        : (!matchedAny && q)
+          ? 'No processes match “' + escapeHtml(ui.search) + '”'
+          : null;
     },
 
     // ---- Render only the rows in (and just around) the viewport ----
@@ -521,7 +713,7 @@ TM.views = TM.views || {};
       for (var i = start; i < end; i++) {
         var it = items[i];
         if (it.kind === 'group') html += this._groupRowHtml(it);
-        else html += this._procRowHtml(it.proc, this._selectedPid, this._stats);
+        else html += this._procRowHtml(it);
       }
       if (botH > 0) html += '<tr class="tm-spacer"><td colspan="' + cols + '" style="height:' + botH + 'px"></td></tr>';
       this._tbody.innerHTML = html;
@@ -543,9 +735,14 @@ TM.views = TM.views || {};
         '</tr>';
     },
 
-    _procRowHtml: function (proc, selectedPid, stats) {
+    _procRowHtml: function (item) {
+      var proc = item.proc;
+      var selectedPid = this._selectedPid;
+      var stats = this._stats;
       var selected = (proc.pid === selectedPid);
       var rowCls = 'tm-proc-row' + (selected ? ' selected' : '');
+      if (item.depth) rowCls += ' child';
+      if (item.childCount > 0) rowCls += item.expanded ? ' expanded' : ' collapsed';
       var cells = '';
       for (var i = 0; i < COLUMNS.length; i++) {
         var col = COLUMNS[i];
@@ -555,12 +752,14 @@ TM.views = TM.views || {};
           cells += '<td class="num ' + heat + '">' + text + '</td>';
         } else if (col.key === 'name') {
           cells += '<td class="name" title="' + escapeHtml(proc.command || proc.path || proc.name || '') +
-            '">' + nameCellInner(proc) + '</td>';
+            '">' + nameCellInner(proc, { childCount: item.childCount, expanded: item.expanded }) + '</td>';
         } else {
           cells += '<td class="status">' + text + '</td>';
         }
       }
-      return '<tr class="' + rowCls + '" data-pid="' + proc.pid + '">' + cells + '</tr>';
+      var attrs = ' class="' + rowCls + '" data-pid="' + proc.pid + '"';
+      if (item.groupKey) attrs += ' data-group-key="' + escapeHtml(item.groupKey) + '"';
+      return '<tr' + attrs + '>' + cells + '</tr>';
     },
 
     // ---- Interactions ----
@@ -585,6 +784,15 @@ TM.views = TM.views || {};
       TM.state.set({ ui: { expanded: patch } });
     },
 
+    // App trees default collapsed (absent key === false), unlike category rows.
+    _toggleAppGroup: function (groupKey) {
+      if (!groupKey) return;
+      var cur = TM.state.ui.expanded[groupKey] === true;
+      var patch = {};
+      patch[groupKey] = !cur;
+      TM.state.set({ ui: { expanded: patch } });
+    },
+
     _selectRow: function (pid) {
       if (!isFinite(pid)) return;
       if (TM.state.ui.selectedPid === pid) return;
@@ -594,17 +802,30 @@ TM.views = TM.views || {};
     _endSelected: function (force) {
       var pid = TM.state.ui.selectedPid;
       if (pid == null) return;
-      this._killPid(pid, force);
+      var pids = (this._groupPids && this._groupPids[pid]) || [pid];
+      this._killPids(pids, force);
     },
 
     _killPid: function (pid, force) {
+      this._killPids([pid], force);
+    },
+
+    _killPids: function (pids, force) {
       if (!window.api || typeof window.api.killProcess !== 'function') return;
+      if (!pids || !pids.length) return;
       try {
-        window.api.killProcess(pid, !!force).then(function (res) {
-          if (res && res.ok === false && console && console.warn) {
-            console.warn('End task failed for pid ' + pid + ': ' + (res.error || 'unknown'));
+        var selected = TM.state.ui.selectedPid;
+        var jobs = [];
+        for (var i = 0; i < pids.length; i++) {
+          jobs.push(window.api.killProcess(pids[i], !!force));
+        }
+        Promise.all(jobs).then(function (results) {
+          for (var r = 0; r < results.length; r++) {
+            if (results[r] && results[r].ok === false && console && console.warn) {
+              console.warn('End task failed for pid ' + pids[r] + ': ' + (results[r].error || 'unknown'));
+            }
           }
-          if (TM.state.ui.selectedPid === pid) {
+          if (selected != null && pids.indexOf(selected) !== -1) {
             TM.state.set({ ui: { selectedPid: null } });
           }
         }).catch(function (err) {
@@ -649,7 +870,10 @@ TM.views = TM.views || {};
       var hasPath = !!(proc.path && proc.path.length);
 
       var items = [
-        { label: 'End task', danger: true, onClick: function () { self._killPid(pid, false); } },
+        { label: 'End task', danger: true, onClick: function () {
+          var pids = (self._groupPids && self._groupPids[pid]) || [pid];
+          self._killPids(pids, false);
+        } },
         { separator: true },
         { label: 'Set priority (High)', onClick: function () { self._setPriority(pid, -10); } },
         { label: 'Set priority (Normal)', onClick: function () { self._setPriority(pid, 0); } },

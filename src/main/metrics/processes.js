@@ -137,6 +137,14 @@ function appBundlePath(item) {
   return m ? m[1] : '';
 }
 
+// Outermost .app basename, used as the grouped parent label
+// (e.g. "Google Chrome" instead of "Google Chrome Helper").
+function outerBundleName(item) {
+  const bundle = appBundlePath(item);
+  if (!bundle) return '';
+  return path.basename(bundle, '.app');
+}
+
 const SYSTEM_PATH_PREFIXES = ['/System', '/usr/libexec', '/usr/sbin', '/sbin', '/usr/bin/'];
 
 // Classify a process into "app" | "background" | "system".
@@ -196,6 +204,7 @@ function toProcess(item, logicalCores, currentUser) {
     started: item.started || null,
     path: item.path || '',
     iconPath: appBundlePath(item), // .app bundle for the Finder icon ('' if none)
+    bundleName: outerBundleName(item),
     command: item.command || '',
     netBytesSec: 0, // filled in from nettop deltas in list()
     type: classify(item, currentUser),
