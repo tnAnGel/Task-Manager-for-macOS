@@ -86,6 +86,165 @@
   color: var(--text-tertiary);
 }
 
+/* ---- Startup apps: icon + two-line name + vendor groups ---- */
+.startup-table {
+  table-layout: fixed;
+}
+.startup-table col.c-name { width: auto; }
+.startup-table col.c-type { width: 132px; }
+.startup-table col.c-status { width: 128px; }
+.startup-table col.c-impact { width: 132px; }
+
+.startup-table td.col-name,
+.startup-table th.col-name {
+  display: table-cell;
+}
+
+.startup-table tbody td {
+  height: 46px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.startup-table tbody tr.startup-parent td {
+  height: 40px;
+  background: var(--group-header);
+}
+
+.startup-table tbody tr.startup-parent:hover td {
+  background: var(--row-hover);
+}
+
+.startup-table tbody tr.startup-child td.col-name .startup-name-cell {
+  padding-left: 8px;
+}
+
+.startup-check-spacer {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
+.startup-name-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.startup-table .row-expander,
+.startup-table .row-expander-spacer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: var(--text-tertiary);
+}
+
+.startup-table .row-expander {
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.startup-table .row-expander .tm-chev {
+  width: 8px;
+  height: 8px;
+}
+
+.startup-table tr.startup-parent.expanded .row-expander {
+  transform: rotate(90deg);
+}
+
+.startup-table tr.startup-parent.collapsed .row-expander {
+  transform: rotate(0deg);
+}
+
+.startup-icon-wrap {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+.startup-icon-wrap .startup-glyph,
+.startup-icon-wrap .app-glyph {
+  position: absolute;
+  inset: 0;
+}
+.startup-table img.app-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.startup-icon-wrap:has(img.app-icon.loaded) .startup-glyph,
+.startup-icon-wrap:has(img.app-icon.loaded) .app-glyph {
+  opacity: 0;
+}
+.startup-table img.app-icon.loaded {
+  opacity: 1;
+}
+
+.startup-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border-radius: var(--r-sm);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+}
+
+.startup-name-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+  line-height: 1.25;
+}
+
+.startup-name-primary {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.startup-name-sub {
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.startup-table tr.startup-parent {
+  cursor: pointer;
+}
+
+.startup-table tr.startup-parent .status-pill {
+  cursor: default;
+}
+
+.startup-table .col-type,
+.startup-table .col-impact {
+  color: var(--text-secondary);
+}
+
+.status-pill.pill-mixed {
+  background: rgba(252, 225, 0, 0.14);
+  color: var(--warning);
+}
+
 /* Interactive autostart checkbox */
 .startup-check {
   flex: 0 0 auto;

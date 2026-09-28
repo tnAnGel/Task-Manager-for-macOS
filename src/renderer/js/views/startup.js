@@ -1,6 +1,6 @@
 // TM.views.startup — Startup apps view.
-// Lists StartupItem[] from window.api.getStartupItems(): LaunchAgents / LaunchDaemons /
-// LoginItems. Fetched once in mount() and cached; update() just re-renders from cache.
+// Lists StartupItem[] from window.api.getStartupItems(): LaunchAgents / LaunchDaemons
+// with friendly names, app icons, and vendor groups (Adobe, Google, Docker, …).
 // Columns: Name | Type | Status (Enabled/Disabled pill) | Startup impact.
 window.TM = window.TM || {};
 TM.views = TM.views || {};
@@ -16,6 +16,16 @@ TM.views = TM.views || {};
   var root = null;       // container element
   var bodyEl = null;     // <tbody> we re-render into
   var statusEl = null;   // header subtitle (count)
+  var expanded = {};     // groupKey -> true when the vendor/app tree is open
+
+  var ICON_CHEV = '<svg class="tm-chev" width="12" height="12" viewBox="0 0 16 16" ' +
+    'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" ' +
+    'stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>';
+
+  var ICON_DOT = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.2" aria-hidden="true">' +
+    '<rect x="2.5" y="2.5" width="11" height="11" rx="2.5" opacity="0.6"/>' +
+    '<circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none" opacity="0.6"/></svg>';
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -25,7 +35,6 @@ TM.views = TM.views || {};
       .replace(/"/g, '&quot;');
   }
 
-  // Friendly label for the StartupItem.type wire value.
   function typeLabel(type) {
     switch (type) {
       case 'LaunchAgent':  return 'Launch agent';
@@ -35,7 +44,6 @@ TM.views = TM.views || {};
     }
   }
 
-  // Map "High"|"Medium"|"Low"|"—" to a CSS modifier + display text.
   function impactInfo(impact) {
     switch (impact) {
       case 'High':   return { cls: 'impact-high',   text: 'High' };
@@ -45,29 +53,47 @@ TM.views = TM.views || {};
     }
   }
 
-  function rowHtml(it) {
-    var name = esc(it && it.name ? it.name : '(unknown)');
-    var pathTitle = it && it.path ? esc(it.path) : '';
-    var type = esc(typeLabel(it ? it.type : null));
-    var enabled = !!(it && it.enabled);
-    var label = esc(it && it.label ? it.label : (it && it.name) || '');
-    var rawType = esc(it && it.type ? it.type : '');
-    var imp = impactInfo(it ? it.impact : '—');
+  function displayNameOf(it) {
+    if (!it) return '(unknown)';
+    return it.displayName || it.name || it.label || '(unknown)';
+  }
 
+  function childDisplayName(it, groupName) {
+    var n = displayNameOf(it);
+    if (groupName) {
+      var prefix = groupName + ' ';
+      if (n.toLowerCase().indexOf(prefix.toLowerCase()) === 0) {
+        var rest = n.slice(prefix.length).trim();
+        if (rest) return rest;
+      }
+    }
+    return n;
+  }
+
+  function iconHtml(iconPath, glyphLetter) {
+    var letter = (glyphLetter || '').trim().charAt(0);
+    var glyph = letter
+      ? '<span class="startup-glyph" aria-hidden="true">' + esc(letter.toUpperCase()) + '</span>'
+      : '<span class="app-glyph">' + ICON_DOT + '</span>';
+    if (!iconPath) return glyph;
+    var cached = (TM.icons && TM.icons.cached) ? TM.icons.cached(iconPath) : undefined;
+    if (cached === '') return glyph;
+    if (TM.icons && TM.icons.request) TM.icons.request(iconPath);
+    return '<span class="startup-icon-wrap">' + glyph +
+      '<img class="app-icon startup-app-icon' + (cached ? ' loaded' : '') + '" ' +
+      'data-icon-path="' + esc(iconPath) + '" alt=""' +
+      (cached ? ' src="' + cached + '"' : '') + '>' +
+      '</span>';
+  }
+
+  function nameStack(primary, secondary, title) {
     return (
-      '<tr class="startup-row" data-label="' + label + '" data-type="' + rawType + '">' +
-        '<td class="col-name">' +
-          '<span class="startup-check' + (enabled ? ' checked' : '') + '" role="checkbox" ' +
-            'tabindex="0" aria-checked="' + enabled + '" ' +
-            'title="' + (enabled ? 'Disable autostart' : 'Enable autostart') + '">' +
-            checkGlyph(enabled) +
-          '</span>' +
-          '<span class="startup-name-text" title="' + pathTitle + '">' + name + '</span>' +
-        '</td>' +
-        '<td class="col-type">' + type + '</td>' +
-        '<td class="col-status">' + statusPillHtml(enabled) + '</td>' +
-        '<td class="col-impact"><span class="impact-label ' + imp.cls + '">' + esc(imp.text) + '</span></td>' +
-      '</tr>'
+      '<span class="startup-name-stack" title="' + esc(title || '') + '">' +
+        '<span class="startup-name-primary">' + esc(primary) + '</span>' +
+        (secondary
+          ? '<span class="startup-name-sub">' + esc(secondary) + '</span>'
+          : '') +
+      '</span>'
     );
   }
 
@@ -76,7 +102,6 @@ TM.views = TM.views || {};
       (enabled ? 'Enabled' : 'Disabled') + '</span>';
   }
 
-  // Checkbox glyph: a ticked box when enabled, an empty box when disabled.
   function checkGlyph(enabled) {
     if (enabled) {
       return (
@@ -95,58 +120,217 @@ TM.views = TM.views || {};
     );
   }
 
+  function checkboxHtml(enabled) {
+    return '<span class="startup-check' + (enabled ? ' checked' : '') + '" role="checkbox" ' +
+      'tabindex="0" aria-checked="' + enabled + '" ' +
+      'title="' + (enabled ? 'Disable autostart' : 'Enable autostart') + '">' +
+      checkGlyph(enabled) +
+      '</span>';
+  }
+
+  function expanderHtml(isOpen) {
+    return '<span class="row-expander" title="' + (isOpen ? 'Collapse' : 'Show items') +
+      '" role="button" tabindex="0" aria-expanded="' + (isOpen ? 'true' : 'false') + '">' +
+      ICON_CHEV + '</span>';
+  }
+
+  function spacerHtml() {
+    return '<span class="row-expander-spacer"></span>';
+  }
+
+  function impactCell(it) {
+    var imp = impactInfo(it ? it.impact : '—');
+    return '<span class="impact-label ' + imp.cls + '">' + esc(imp.text) + '</span>';
+  }
+
+  function itemRowHtml(it, opts) {
+    opts = opts || {};
+    var enabled = !!(it && it.enabled);
+    var label = esc(it && it.label ? it.label : (it && it.name) || '');
+    var rawType = esc(it && it.type ? it.type : '');
+    var pending = !!(it && it._pending);
+    var primary = opts.primary || displayNameOf(it);
+    var subtitle = it && it.label ? it.label : '';
+    var title = [primary, subtitle, it && it.program, it && it.path]
+      .filter(Boolean).join('\n');
+    var cls = 'startup-row' + (opts.child ? ' startup-child' : '') +
+      (pending ? ' pending' : '');
+    var glyph = primary || (it && it.vendor) || '?';
+
+    return (
+      '<tr class="' + cls + '" data-label="' + label + '" data-type="' + rawType + '">' +
+        '<td class="col-name">' +
+          '<div class="startup-name-cell">' +
+            spacerHtml() +
+            checkboxHtml(enabled) +
+            iconHtml(it && it.iconPath, glyph) +
+            nameStack(primary, subtitle, title) +
+          '</div>' +
+        '</td>' +
+        '<td class="col-type">' + esc(typeLabel(it ? it.type : null)) + '</td>' +
+        '<td class="col-status">' + statusPillHtml(enabled) + '</td>' +
+        '<td class="col-impact">' + impactCell(it) + '</td>' +
+      '</tr>'
+    );
+  }
+
+  function parentStatusHtml(list) {
+    var n = list.length;
+    var on = 0;
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].enabled) on++;
+    if (on === n) {
+      return '<span class="status-pill pill-enabled">' +
+        (n === 1 ? 'Enabled' : n + ' enabled') + '</span>';
+    }
+    if (on === 0) {
+      return '<span class="status-pill pill-disabled">' +
+        (n === 1 ? 'Disabled' : 'Disabled') + '</span>';
+    }
+    return '<span class="status-pill pill-mixed">' + on + ' of ' + n + ' enabled</span>';
+  }
+
+  function parentTypeLabel(list) {
+    var t = list[0] && list[0].type;
+    for (var i = 1; i < list.length; i++) {
+      if (list[i] && list[i].type !== t) return 'Multiple';
+    }
+    return typeLabel(t);
+  }
+
+  function parentRowHtml(group) {
+    var isOpen = !!group.expanded;
+    var n = group.items.length;
+    var iconPath = '';
+    for (var i = 0; i < n; i++) {
+      if (group.items[i] && group.items[i].iconPath) {
+        iconPath = group.items[i].iconPath;
+        break;
+      }
+    }
+    var sub = n + (n === 1 ? ' item' : ' items');
+    var title = group.name + ' — ' + sub;
+    var cls = 'startup-row startup-parent' + (isOpen ? ' expanded' : ' collapsed');
+    return (
+      '<tr class="' + cls + '" data-group-key="' + esc(group.key) + '">' +
+        '<td class="col-name">' +
+          '<div class="startup-name-cell">' +
+            expanderHtml(isOpen) +
+            '<span class="startup-check-spacer"></span>' +
+            iconHtml(iconPath, group.name) +
+            nameStack(group.name, sub, title) +
+          '</div>' +
+        '</td>' +
+        '<td class="col-type">' + esc(parentTypeLabel(group.items)) + '</td>' +
+        '<td class="col-status">' + parentStatusHtml(group.items) + '</td>' +
+        '<td class="col-impact"><span class="impact-label impact-none">Not measured</span></td>' +
+      '</tr>'
+    );
+  }
+
   function setSubtitle(text) {
     if (statusEl) statusEl.textContent = text;
   }
 
-  // Render the body based on current cache state.
+  function compareItems(a, b) {
+    var ae = a && a.enabled ? 1 : 0;
+    var be = b && b.enabled ? 1 : 0;
+    if (ae !== be) return be - ae;
+    var an = displayNameOf(a).toLowerCase();
+    var bn = displayNameOf(b).toLowerCase();
+    return an < bn ? -1 : an > bn ? 1 : 0;
+  }
+
+  function buildGroups(list) {
+    var buckets = {};
+    var singles = [];
+    var order = [];
+
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i];
+      if (!it) continue;
+      var gk = it.groupKey || '';
+      if (!gk) { singles.push(it); continue; }
+      if (!buckets[gk]) {
+        buckets[gk] = [];
+        order.push(gk);
+      }
+      buckets[gk].push(it);
+    }
+
+    var groups = [];
+    for (var o = 0; o < order.length; o++) {
+      var key = order[o];
+      var members = buckets[key];
+      if (members.length < 2) {
+        for (var m = 0; m < members.length; m++) singles.push(members[m]);
+        continue;
+      }
+      members.sort(compareItems);
+      groups.push({
+        kind: 'group',
+        key: key,
+        name: members[0].groupName || members[0].vendor || key,
+        items: members,
+        expanded: expanded[key] === true,
+      });
+    }
+
+    var rows = groups.concat(singles.map(function (it) {
+      return { kind: 'item', item: it };
+    }));
+    rows.sort(function (a, b) {
+      var an = (a.kind === 'group' ? a.name : displayNameOf(a.item)).toLowerCase();
+      var bn = (b.kind === 'group' ? b.name : displayNameOf(b.item)).toLowerCase();
+      return an < bn ? -1 : an > bn ? 1 : 0;
+    });
+    return rows;
+  }
+
+  function emptyRow(msg) {
+    return '<tr class="startup-empty-row"><td colspan="4">' +
+      '<div class="startup-message">' + esc(msg) + '</div></td></tr>';
+  }
+
   function render() {
     if (!bodyEl) return;
 
     if (loading && !fetched) {
-      bodyEl.innerHTML =
-        '<tr class="startup-empty-row"><td colspan="4">' +
-        '<div class="startup-message">Loading startup items…</div>' +
-        '</td></tr>';
+      bodyEl.innerHTML = emptyRow('Loading startup items…');
       setSubtitle('Loading…');
       return;
     }
 
     if (failed) {
-      bodyEl.innerHTML =
-        '<tr class="startup-empty-row"><td colspan="4">' +
-        '<div class="startup-message">Could not read startup items.</div>' +
-        '</td></tr>';
+      bodyEl.innerHTML = emptyRow('Could not read startup items.');
       setSubtitle('Unavailable');
       return;
     }
 
     var list = Array.isArray(items) ? items : [];
     if (list.length === 0) {
-      bodyEl.innerHTML =
-        '<tr class="startup-empty-row"><td colspan="4">' +
-        '<div class="startup-message">No startup items found</div>' +
-        '</td></tr>';
+      bodyEl.innerHTML = emptyRow('No startup items found');
       setSubtitle('0 items');
       return;
     }
 
-    // Sort: enabled first, then by impact weight, then by name (stable, friendly).
-    var weight = { High: 3, Medium: 2, Low: 1 };
-    var sorted = list.slice().sort(function (a, b) {
-      var ae = a && a.enabled ? 1 : 0;
-      var be = b && b.enabled ? 1 : 0;
-      if (ae !== be) return be - ae;
-      var aw = weight[a && a.impact] || 0;
-      var bw = weight[b && b.impact] || 0;
-      if (aw !== bw) return bw - aw;
-      var an = (a && a.name ? a.name : '').toLowerCase();
-      var bn = (b && b.name ? b.name : '').toLowerCase();
-      return an < bn ? -1 : an > bn ? 1 : 0;
-    });
-
+    var rows = buildGroups(list);
     var html = '';
-    for (var i = 0; i < sorted.length; i++) html += rowHtml(sorted[i]);
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (row.kind === 'group') {
+        html += parentRowHtml(row);
+        if (row.expanded) {
+          for (var c = 0; c < row.items.length; c++) {
+            html += itemRowHtml(row.items[c], {
+              child: true,
+              primary: childDisplayName(row.items[c], row.name),
+            });
+          }
+        }
+      } else {
+        html += itemRowHtml(row.item, { primary: displayNameOf(row.item) });
+      }
+    }
     bodyEl.innerHTML = html;
 
     var enabledCount = 0;
@@ -155,7 +339,6 @@ TM.views = TM.views || {};
       ' · ' + enabledCount + ' enabled');
   }
 
-  // Fetch once and cache. Throttled via `fetched`/`loading` guards.
   function loadItems(force) {
     if (loading) return;
     if (fetched && !force) return;
@@ -175,7 +358,6 @@ TM.views = TM.views || {};
         failed = false;
       })
       .catch(function (err) {
-        // eslint-disable-next-line no-console
         try { console.error('[startup] getStartupItems failed:', err); } catch (e) {}
         items = [];
         failed = true;
@@ -187,7 +369,6 @@ TM.views = TM.views || {};
       });
   }
 
-  // ---- toggle machinery ----------------------------------------------------
   function enabledCount() {
     var list = Array.isArray(items) ? items : [];
     var n = 0;
@@ -234,30 +415,51 @@ TM.views = TM.views || {};
     if (statusTd) statusTd.innerHTML = statusPillHtml(!!enabled);
   }
 
+  function wrapScrollTop() {
+    var wrap = root && root.querySelector('.startup-table-wrap');
+    return wrap ? wrap.scrollTop : 0;
+  }
+
+  function restoreScroll(top) {
+    var wrap = root && root.querySelector('.startup-table-wrap');
+    if (wrap) wrap.scrollTop = top || 0;
+  }
+
+  function toggleGroup(key) {
+    if (!key) return;
+    expanded[key] = expanded[key] !== true;
+    var top = wrapScrollTop();
+    render();
+    restoreScroll(top);
+  }
+
   function toggleRow(rowEl) {
-    if (!rowEl || rowEl._pending) return;
+    if (!rowEl) return;
     var label = rowEl.getAttribute('data-label');
     var type = rowEl.getAttribute('data-type');
     var it = findItem(label, type);
-    if (!it) return;
+    if (!it || it._pending) return;
     if (!window.api || typeof window.api.setStartupEnabled !== 'function') {
       flashMessage('Toggling is not available'); return;
     }
     var next = !it.enabled;
     rowEl._pending = true;
-    setRowUI(rowEl, next, true); // optimistic
+    it._pending = true;
+    setRowUI(rowEl, next, true);
     if (type === 'LaunchDaemon') {
       setSubtitle('Authorizing… (an administrator password may be required)');
     }
     Promise.resolve(window.api.setStartupEnabled(label, type, next))
       .then(function (res) {
         rowEl._pending = false;
+        it._pending = false;
         if (res && res.ok) {
           it.enabled = next;
-          setRowUI(rowEl, next, false);
-          updateSubtitle();
+          var top = wrapScrollTop();
+          render();
+          restoreScroll(top);
         } else {
-          setRowUI(rowEl, it.enabled, false); // revert
+          setRowUI(rowEl, it.enabled, false);
           flashMessage((res && res.error)
             ? ('Could not change autostart — ' + res.error)
             : 'Could not change autostart');
@@ -265,6 +467,7 @@ TM.views = TM.views || {};
       })
       .catch(function () {
         rowEl._pending = false;
+        it._pending = false;
         setRowUI(rowEl, it.enabled, false);
         flashMessage('Could not change autostart');
       });
@@ -273,24 +476,55 @@ TM.views = TM.views || {};
   function onBodyClick(ev) {
     var t = ev.target;
     if (!t || !t.closest) return;
+
+    var parent = t.closest('tr.startup-parent');
+    if (parent) {
+      ev.preventDefault();
+      toggleGroup(parent.getAttribute('data-group-key'));
+      return;
+    }
+
+    if (t.closest('.row-expander')) {
+      var expRow = t.closest('tr.startup-row');
+      if (expRow) {
+        ev.preventDefault();
+        toggleGroup(expRow.getAttribute('data-group-key'));
+      }
+      return;
+    }
+
     if (!t.closest('.startup-check') && !t.closest('.status-pill')) return;
     var row = t.closest('tr.startup-row');
-    if (row) { ev.preventDefault(); toggleRow(row); }
+    if (row && !row.classList.contains('startup-parent')) {
+      ev.preventDefault();
+      toggleRow(row);
+    }
   }
 
   function onBodyKeydown(ev) {
     if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
     var t = ev.target;
-    if (!t || !t.closest || !t.closest('.startup-check')) return;
+    if (!t || !t.closest) return;
+    if (t.closest('.row-expander')) {
+      var expRow = t.closest('tr.startup-parent') || t.closest('tr.startup-row');
+      if (expRow) {
+        ev.preventDefault();
+        toggleGroup(expRow.getAttribute('data-group-key'));
+      }
+      return;
+    }
+    if (!t.closest('.startup-check')) return;
     var row = t.closest('tr.startup-row');
-    if (row) { ev.preventDefault(); toggleRow(row); }
+    if (row && !row.classList.contains('startup-parent')) {
+      ev.preventDefault();
+      toggleRow(row);
+    }
   }
 
   TM.views.startup = {
     id: 'startup',
     title: 'Startup apps',
 
-    // Rocket glyph for the sidebar (16x16, currentColor).
     icon:
       '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" ' +
       'xmlns="http://www.w3.org/2000/svg">' +
@@ -305,7 +539,6 @@ TM.views = TM.views || {};
 
     mount: function (containerEl) {
       root = containerEl;
-      // reset per-mount transient flags but keep cached items if already loaded
       loading = false;
       if (!Array.isArray(items)) { fetched = false; failed = false; }
 
@@ -319,6 +552,12 @@ TM.views = TM.views || {};
           '</header>' +
           '<div class="startup-table-wrap">' +
             '<table class="startup-table data-table">' +
+              '<colgroup>' +
+                '<col class="c-name">' +
+                '<col class="c-type">' +
+                '<col class="c-status">' +
+                '<col class="c-impact">' +
+              '</colgroup>' +
               '<thead><tr>' +
                 '<th class="col-name">Name</th>' +
                 '<th class="col-type">Type</th>' +
@@ -333,13 +572,11 @@ TM.views = TM.views || {};
       bodyEl = root.querySelector('#startup-tbody');
       statusEl = root.querySelector('#startup-subtitle');
 
-      // Delegated toggle handlers (rows are re-rendered into bodyEl).
       if (bodyEl) {
         bodyEl.addEventListener('click', onBodyClick);
         bodyEl.addEventListener('keydown', onBodyKeydown);
       }
 
-      // If we already have cached data from a prior mount, just render it.
       if (Array.isArray(items)) {
         render();
       } else {
@@ -347,16 +584,11 @@ TM.views = TM.views || {};
       }
     },
 
-    // Called each poll tick. Data is cached (fetched once); only ensure a render
-    // and kick off the initial fetch if it somehow hasn't happened yet.
     update: function () {
       if (!bodyEl) return;
       if (!fetched && !loading) {
         loadItems(false);
-        return;
       }
-      // No-op when already loaded: cached list does not change between fetches,
-      // so avoid needless DOM thrash. (mount already rendered.)
     },
 
     unmount: function () {
@@ -364,8 +596,6 @@ TM.views = TM.views || {};
       bodyEl = null;
       statusEl = null;
       loading = false;
-      // keep `items` cache so re-entering the view is instant; allow refresh
-      // by leaving fetched=true (data is static enough for this view).
     },
   };
 })();

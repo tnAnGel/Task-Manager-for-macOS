@@ -284,7 +284,434 @@ function readDirSafe(dir) {
   }
 }
 
-// startupItems() — read LaunchAgents / LaunchDaemons plist filenames.
+function pathExists(p) {
+  try { return !!(p && fs.existsSync(p)); } catch (_) { return false; }
+}
+
+// Reverse-DNS first labels (com/org/net/…) skipped when inferring the vendor.
+const DNS_SKIP = new Set([
+  'com', 'org', 'net', 'io', 'co', 'edu', 'gov', 'mil', 'info', 'biz', 'dev',
+  'app', 'me', 'us', 'uk', 'de', 'fr', 'ru', 'jp', 'cn', 'au', 'ca', 'nl',
+  'it', 'es', 'br', 'in', 'kr', 'eu', 'tv',
+]);
+
+// Known vendors → display name. Keys are the reverse-DNS company token.
+const VENDOR_NAMES = {
+  adobe: 'Adobe',
+  google: 'Google',
+  docker: 'Docker',
+  apple: 'Apple',
+  microsoft: 'Microsoft',
+  oracle: 'Oracle',
+  valvesoftware: 'Steam',
+  valve: 'Steam',
+  happ: 'Happ',
+  dropbox: 'Dropbox',
+  spotify: 'Spotify',
+  logitech: 'Logitech',
+  zoom: 'Zoom',
+  slack: 'Slack',
+  discord: 'Discord',
+  jetbrains: 'JetBrains',
+  github: 'GitHub',
+  gitlab: 'GitLab',
+  mozilla: 'Mozilla',
+  brave: 'Brave',
+  opera: 'Opera',
+  yandex: 'Yandex',
+  autodesk: 'Autodesk',
+  parallels: 'Parallels',
+  vmware: 'VMware',
+  teamviewer: 'TeamViewer',
+  nordvpn: 'NordVPN',
+  cloudflare: 'Cloudflare',
+  amazon: 'Amazon',
+  meta: 'Meta',
+  facebook: 'Meta',
+  telegram: 'Telegram',
+  skype: 'Skype',
+  cisco: 'Cisco',
+  intel: 'Intel',
+  nvidia: 'NVIDIA',
+  wacom: 'Wacom',
+  elgato: 'Elgato',
+  synology: 'Synology',
+  backblaze: 'Backblaze',
+  malwarebytes: 'Malwarebytes',
+  bitdefender: 'Bitdefender',
+  kaspersky: 'Kaspersky',
+  '1password': '1Password',
+  lastpass: 'LastPass',
+  bitwarden: 'Bitwarden',
+  notion: 'Notion',
+  figma: 'Figma',
+  cursor: 'Cursor',
+  steam: 'Steam',
+  tailscale: 'Tailscale',
+  duckbridge: 'DuckVPN',
+  fabriceleyne: 'Fabrice Leyne',
+  opengater: 'OpenGater',
+  morkovka: 'Morkovka',
+  jcode: 'jcode',
+};
+
+// Vendors whose agents/daemons should nest under one parent when 2+ items exist.
+const GROUPABLE_VENDORS = new Set([
+  'adobe', 'google', 'docker', 'apple', 'microsoft', 'oracle', 'valvesoftware',
+]);
+
+// Exact launchd labels → friendly item name (vendor still comes from the DNS token).
+const LABEL_DISPLAY = {
+  'com.adobe.AdobeCreativeCloud': 'Adobe Creative Cloud',
+  'com.adobe.ccxprocess': 'Adobe Creative Cloud Experience',
+  'com.adobe.CCXProcess': 'Adobe Creative Cloud Experience',
+  'com.adobe.acc.installer.v2': 'Adobe Creative Cloud Installer',
+  'com.adobe.acc.installer': 'Adobe Creative Cloud Installer',
+  'com.adobe.GC.Invoker-1.0': 'Adobe Genuine Software',
+  'com.adobe.agsservice': 'Adobe Genuine Software',
+  'com.google.GoogleUpdater.wake': 'Google Updater',
+  'com.google.GoogleUpdater.wake.system': 'Google Updater',
+  'com.google.keystone.agent': 'Google Keystone Agent',
+  'com.google.keystone.daemon': 'Google Keystone Daemon',
+  'com.google.keystone.xpcservice': 'Google Keystone XPC',
+  'com.google.keystone.system.agent': 'Google Keystone Agent',
+  'com.docker.socket': 'Docker Socket',
+  'com.docker.vmnetd': 'Docker Networking',
+  'com.docker.helper': 'Docker Helper',
+  'com.microsoft.SyncReporter': 'OneDrive Sync Reporter',
+  'com.microsoft.update.agent': 'Microsoft AutoUpdate',
+  'com.microsoft.autoupdate.helper': 'Microsoft AutoUpdate Helper',
+  'com.microsoft.office.licensingV2.helper': 'Microsoft Office Licensing',
+  'com.microsoft.OneDriveStandaloneUpdater': 'OneDrive',
+  'com.microsoft.OneDriveUpdaterDaemon': 'OneDrive',
+  'com.oracle.java.Java-Updater': 'Java Updater',
+  'com.valvesoftware.steamclean': 'Steam',
+  'com.happ.happd': 'Happ',
+  'com.morkovka.CmdShiftLayoutSwitcher': 'CmdShift Layout Switcher',
+  'com.morkovka.wayro-stability-24h': 'Wayro Stability Monitor',
+  'com.jcode.hotkey': 'jcode Hotkey',
+  'net.duckbridge.duckvpn.billing-reminder': 'DuckVPN Billing Reminder',
+  'com.fabriceleyne.powermetrics': 'Power Metrics',
+  'com.opengater.tailscale-route-fix': 'Tailscale Route Fix',
+  RoverService: 'Rover Service',
+};
+
+const TOKEN_DISPLAY = {
+  acc: 'Creative Cloud',
+  ccxprocess: 'Creative Cloud Experience',
+  keystone: 'Updater',
+  xpcservice: 'XPC Service',
+  vmnetd: 'Networking',
+  steamclean: 'Steam',
+  autoupdate: 'AutoUpdate',
+  syncreporter: 'Sync Reporter',
+  happd: 'Happ',
+  powermetrics: 'Power Metrics',
+  licensingv2: 'Licensing',
+  googleupdater: 'Updater',
+  installer: 'Installer',
+  helper: 'Helper',
+  agent: 'Agent',
+  daemon: 'Daemon',
+  wake: '',
+  socket: 'Socket',
+};
+
+// Well-known .app locations used when a helper binary lives in PrivilegedHelperTools.
+const VENDOR_APP_HINTS = {
+  adobe: [
+    '/Applications/Utilities/Adobe Creative Cloud/ACC/Creative Cloud.app',
+    '/Applications/Adobe Creative Cloud/Adobe Creative Cloud.app',
+  ],
+  docker: ['/Applications/Docker.app'],
+  google: [
+    '/Applications/Google Chrome.app',
+    '/Applications/Google Drive.app',
+  ],
+  microsoft: [
+    '/Library/Application Support/Microsoft/MAU2.0/Microsoft AutoUpdate.app',
+    '/Applications/Microsoft Excel.app',
+    '/Applications/Microsoft Word.app',
+    '/Applications/OneDrive.app',
+  ],
+  oracle: [
+    '/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Resources/Java Updater.app',
+  ],
+  valvesoftware: ['/Applications/Steam.app'],
+  happ: ['/Applications/Happ 2.app', '/Applications/Happ.app'],
+  apple: ['/System/Applications/App Store.app'],
+  dropbox: ['/Applications/Dropbox.app'],
+  spotify: ['/Applications/Spotify.app'],
+  zoom: ['/Applications/zoom.us.app'],
+  tailscale: ['/Applications/Tailscale.app'],
+  steam: ['/Applications/Steam.app'],
+};
+
+const _bundleMetaCache = new Map();
+
+async function readPlistJson(plistPath) {
+  const res = await run('plutil', ['-convert', 'json', '-o', '-', plistPath]);
+  if (!res || !res.ok || !res.stdout) return null;
+  try { return JSON.parse(res.stdout); } catch (_) { return null; }
+}
+
+function plistString(v) {
+  if (typeof v === 'string' && v.trim()) return v.trim();
+  if (v && typeof v === 'object') {
+    if (typeof v.CFBundleDisplayName === 'string') return v.CFBundleDisplayName;
+    if (typeof v[''] === 'string') return v[''];
+    if (typeof v.en === 'string') return v.en;
+  }
+  return '';
+}
+
+function humanizeIdentifier(s) {
+  return String(s || '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function titleCaseWord(s) {
+  if (!s) return '';
+  if (/^[A-Z0-9]+$/.test(s) && s.length <= 4) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function humanizeToken(raw) {
+  const t = String(raw || '');
+  if (!t || /^v?\d+(\.\d+)*$/i.test(t)) return '';
+  const key = t.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (Object.prototype.hasOwnProperty.call(TOKEN_DISPLAY, key)) return TOKEN_DISPLAY[key];
+  return humanizeIdentifier(t).split(/\s+/).map(titleCaseWord).join(' ');
+}
+
+function dedupeWords(s) {
+  const parts = String(s || '').split(/\s+/).filter(Boolean);
+  const out = [];
+  for (let i = 0; i < parts.length; i++) {
+    if (out.length && out[out.length - 1].toLowerCase() === parts[i].toLowerCase()) continue;
+    out.push(parts[i]);
+  }
+  return out.join(' ');
+}
+
+function decodeLabel(label) {
+  const raw = String(label || '');
+  const mapped = LABEL_DISPLAY[raw];
+  const parts = raw.split('.').filter(Boolean);
+  let idx = 0;
+  if (parts.length >= 2 && DNS_SKIP.has(parts[0].toLowerCase())) idx = 1;
+  const vendorRaw = (parts[idx] || '').toLowerCase();
+  const vendor = VENDOR_NAMES[vendorRaw] || (parts[idx] ? humanizeIdentifier(parts[idx]) : '');
+  const rest = parts.slice(idx + 1).map(humanizeToken).filter(Boolean);
+  let product = dedupeWords(rest.join(' '));
+  // Don't repeat the vendor in the product ("Google Google Updater").
+  if (vendor && product.toLowerCase().indexOf(vendor.toLowerCase()) === 0) {
+    product = product.slice(vendor.length).trim();
+  }
+  let displayName = mapped || dedupeWords([vendor, product].filter(Boolean).join(' '));
+  if (!displayName) displayName = humanizeIdentifier(raw) || raw || '(unknown)';
+  return {
+    vendorKey: vendorRaw,
+    vendor: vendor,
+    displayName: displayName,
+  };
+}
+
+function programCandidates(pl) {
+  const out = [];
+  if (!pl || typeof pl !== 'object') return out;
+  if (typeof pl.Program === 'string' && pl.Program) out.push(pl.Program);
+  const args = pl.ProgramArguments;
+  if (Array.isArray(args)) {
+    for (let i = 0; i < args.length; i++) {
+      if (typeof args[i] === 'string' && args[i]) out.push(args[i]);
+    }
+  }
+  return out;
+}
+
+function bundlesInPath(p) {
+  const s = String(p || '');
+  const out = [];
+  let from = 0;
+  const lower = s.toLowerCase();
+  while (from < s.length) {
+    const idx = lower.indexOf('.app', from);
+    if (idx < 0) break;
+    const end = idx + 4;
+    const next = s.charAt(end);
+    if (next && next !== '/' && next !== '\\') { from = idx + 1; continue; }
+    out.push(s.slice(0, end));
+    from = end;
+  }
+  return out;
+}
+
+function similarApp(missingBundle) {
+  if (!missingBundle) return '';
+  const dir = path.dirname(missingBundle);
+  const base = path.basename(missingBundle, '.app');
+  if (!base) return '';
+  const lower = base.toLowerCase();
+  const entries = readDirSafe(dir);
+  let fuzzy = '';
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    if (typeof e !== 'string' || !e.toLowerCase().endsWith('.app')) continue;
+    const stem = e.slice(0, -4).toLowerCase();
+    if (stem === lower) return path.join(dir, e);
+    if (!fuzzy && (stem.indexOf(lower) === 0)) fuzzy = path.join(dir, e);
+  }
+  return fuzzy;
+}
+
+function firstHint(list) {
+  if (!Array.isArray(list)) return '';
+  for (let i = 0; i < list.length; i++) {
+    if (pathExists(list[i]) && bundleHasIcon(list[i])) return list[i];
+  }
+  return '';
+}
+
+function bundleHasIcon(bundlePath) {
+  const resDir = path.join(bundlePath, 'Contents', 'Resources');
+  if (!pathExists(resDir)) return false;
+  const files = readDirSafe(resDir);
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    if (typeof f !== 'string') continue;
+    if (/\.icns$/i.test(f) || /^Assets\.car$/i.test(f)) return true;
+  }
+  return false;
+}
+
+function resolveIconFromProgram(candidates) {
+  for (let i = 0; i < candidates.length; i++) {
+    const bundles = bundlesInPath(candidates[i]);
+    for (let b = 0; b < bundles.length; b++) {
+      if (pathExists(bundles[b]) && bundleHasIcon(bundles[b])) return bundles[b];
+    }
+    if (bundles.length) {
+      const sim = similarApp(bundles[0]);
+      if (sim && bundleHasIcon(sim)) return sim;
+    }
+  }
+  return '';
+}
+
+function hintIconPath(vendorKey, label, candidates) {
+  const hinted = firstHint(VENDOR_APP_HINTS[vendorKey]);
+  if (hinted) return hinted;
+  const low = String(label || '').toLowerCase() + ' ' + (candidates || []).join(' ').toLowerCase();
+  if (/\btailscale\b/.test(low)) {
+    const p = firstHint(VENDOR_APP_HINTS.tailscale);
+    if (p) return p;
+  }
+  if (/\bsteam\b/.test(low)) {
+    const p = firstHint(VENDOR_APP_HINTS.steam);
+    if (p) return p;
+  }
+  if (vendorKey) {
+    const titled = (VENDOR_NAMES[vendorKey] || vendorKey);
+    const guess = path.join('/Applications', titled + '.app');
+    if (pathExists(guess)) return guess;
+  }
+  return '';
+}
+
+async function bundleMeta(bundlePath) {
+  if (!bundlePath) return { name: '', id: '' };
+  if (_bundleMetaCache.has(bundlePath)) return _bundleMetaCache.get(bundlePath);
+  const infoPath = path.join(bundlePath, 'Contents', 'Info.plist');
+  const pl = pathExists(infoPath) ? await readPlistJson(infoPath) : null;
+  const name = pl
+    ? (plistString(pl.CFBundleDisplayName) || plistString(pl.CFBundleName) || '')
+    : '';
+  const id = pl ? plistString(pl.CFBundleIdentifier) : '';
+  const meta = { name: name || path.basename(bundlePath, '.app'), id: id };
+  _bundleMetaCache.set(bundlePath, meta);
+  return meta;
+}
+
+function shareGroupIcons(items) {
+  const byVendor = new Map();
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (!it || !it.vendorKey || !GROUPABLE_VENDORS.has(it.vendorKey)) continue;
+    if (!byVendor.has(it.vendorKey)) byVendor.set(it.vendorKey, []);
+    byVendor.get(it.vendorKey).push(it);
+  }
+  byVendor.forEach((list) => {
+    let icon = '';
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].iconPath) { icon = list[i].iconPath; break; }
+    }
+    if (!icon) return;
+    for (let i = 0; i < list.length; i++) {
+      if (!list[i].iconPath) list[i].iconPath = icon;
+    }
+  });
+}
+
+function applyIconHints(items) {
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (!it || it.iconPath) continue;
+    it.iconPath = hintIconPath(it.vendorKey, it.label, it.program ? [it.program] : []) || '';
+  }
+}
+
+async function enrichStartupItem(src, entry, disabled) {
+  const full = path.join(src.dir, entry);
+  const fileLabel = plistToName(entry);
+  let pl = null;
+  try { pl = await readPlistJson(full); } catch (_) { pl = null; }
+
+  const serviceLabel = (pl && typeof pl.Label === 'string' && pl.Label.trim())
+    ? pl.Label.trim()
+    : fileLabel;
+  const candidates = programCandidates(pl);
+  const program = candidates.find((c) => c.charAt(0) === '/') || candidates[0] || '';
+  const decoded = decodeLabel(serviceLabel);
+  const iconPath = resolveIconFromProgram(candidates);
+
+  let displayName = decoded.displayName;
+  let bundleName = '';
+  if (iconPath) {
+    const meta = await bundleMeta(iconPath);
+    bundleName = meta.name || '';
+    const livesInBundle = candidates.some((c) =>
+      c === iconPath || c.indexOf(iconPath + '/') === 0);
+    if (!LABEL_DISPLAY[serviceLabel] && livesInBundle && bundleName) {
+      displayName = bundleName;
+    }
+  }
+
+  const groupable = GROUPABLE_VENDORS.has(decoded.vendorKey);
+  return {
+    name: displayName || fileLabel,
+    label: serviceLabel,
+    path: full,
+    type: src.type,
+    scope: src.type === 'LaunchDaemon' ? 'system' : 'user',
+    enabled: !disabled.has(serviceLabel) && !disabled.has(fileLabel),
+    impact: '—',
+    displayName: displayName || fileLabel,
+    vendor: decoded.vendor || '',
+    vendorKey: decoded.vendorKey || '',
+    iconPath: iconPath || '',
+    program: program || '',
+    bundleName: bundleName || '',
+    groupKey: groupable ? decoded.vendorKey : '',
+    groupName: groupable ? (decoded.vendor || '') : '',
+  };
+}
+
+// startupItems() — LaunchAgents / LaunchDaemons with friendly names + icons.
 async function startupItems() {
   try {
     const home = (() => {
@@ -298,8 +725,7 @@ async function startupItems() {
     ];
 
     const disabled = await getDisabledLabels();
-
-    const items = [];
+    const jobs = [];
     const seen = new Set();
 
     for (const src of sources) {
@@ -309,23 +735,21 @@ async function startupItems() {
         if (typeof entry !== 'string') continue;
         if (!entry.toLowerCase().endsWith('.plist')) continue;
         const full = path.join(src.dir, entry);
-        // de-dup by full path
         if (seen.has(full)) continue;
         seen.add(full);
-        const label = plistToName(entry);
-        items.push({
-          name: label,
-          label, // launchd service label (== plist basename)
-          path: full,
-          type: src.type,
-          scope: src.type === 'LaunchDaemon' ? 'system' : 'user',
-          enabled: !disabled.has(label), // real state from launchctl print-disabled
-          impact: '—',
-        });
+        jobs.push(enrichStartupItem(src, entry, disabled));
       }
     }
 
-    items.sort((a, b) => a.name.localeCompare(b.name));
+    const items = [];
+    const settled = await Promise.all(jobs);
+    for (let i = 0; i < settled.length; i++) {
+      if (settled[i]) items.push(settled[i]);
+    }
+    shareGroupIcons(items);
+    applyIconHints(items);
+    items.sort((a, b) => String(a.displayName || a.name || '')
+      .localeCompare(String(b.displayName || b.name || '')));
     return items;
   } catch (e) {
     return [];

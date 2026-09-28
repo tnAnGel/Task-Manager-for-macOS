@@ -393,32 +393,50 @@
 }
 
 /* Sub-process / expand chevron (e.g. grouped helper children) */
-.proc-table td.col-name .row-expander {
+.proc-table td.col-name .row-expander,
+.tm-proc-table td.name .row-expander {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 14px;
   height: 14px;
   flex-shrink: 0;
-  margin-left: -18px;
   color: var(--text-tertiary);
   cursor: pointer;
   transition: transform 120ms ease;
 }
 
-.proc-table td.col-name .row-expander svg {
+.proc-table td.col-name .row-expander svg,
+.tm-proc-table td.name .row-expander svg {
   width: 8px;
   height: 8px;
-  fill: currentColor;
+  fill: none;
   display: block;
 }
 
-.proc-table tbody tr.proc-row.expanded td.col-name .row-expander {
+.proc-table tbody tr.proc-row.expanded td.col-name .row-expander,
+.tm-proc-table tr.tm-proc-row.expanded td.name .row-expander {
+  transform: rotate(90deg);
+}
+
+.proc-table tbody tr.proc-row.collapsed td.col-name .row-expander,
+.tm-proc-table tr.tm-proc-row.collapsed td.name .row-expander {
   transform: rotate(0deg);
 }
 
-.proc-table tbody tr.proc-row.collapsed td.col-name .row-expander {
-  transform: rotate(-90deg);
+.tm-proc-table td.name .row-expander-spacer {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+.tm-proc-table tr.tm-proc-row td.name {
+  padding-left: 12px;
+}
+
+.tm-proc-table tr.tm-proc-row.child td.name .tm-name-inner {
+  padding-left: 18px;
 }
 
 /* ---- Status cell ---- */

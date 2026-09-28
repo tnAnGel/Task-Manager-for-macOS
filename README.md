@@ -24,14 +24,14 @@ per‑core graphs. The window is fully native macOS (real traffic lights), the l
 borrowed from Windows 11.
 
 <div align="center">
-  <img src="image/processes.png" width="840" alt="Processes view" />
+  <img src="image/processes-grouped.png" width="840" alt="Processes view with per-app grouping" />
 </div>
 
 ## ✨ Features
 
-- 🗂 **Processes** — grouped into Apps / Background / System with real app icons, per‑group
-  CPU/Memory/Network totals, sortable columns, search, and a right‑click menu (End task,
-  Set priority, Reveal in Finder).
+- 🗂 **Processes** — grouped into Apps / Background / System, then nested by app / same
+  name (Chrome helpers stay under Chrome). Real app icons, aggregated CPU/Memory/Network,
+  sortable columns, search, and a right‑click menu (End task, Set priority, Reveal in Finder).
 - 📈 **Performance** — live graphs for CPU (a grid per logical core), Memory, Disk, Network
   and GPU, a “Top processes” list, and the details that matter: load average, P/E cores,
   swap, cached memory, uptime, threads…
@@ -41,14 +41,15 @@ borrowed from Windows 11.
 - 🌐 **Real disk & network rates** — derived from the system counters; per‑process network
   via `nettop`.
 - 🎮 **GPU utilization on Apple Silicon** — pulled from `ioreg`, no `sudo`.
-- 🚀 **Startup apps** — see your Launch Agents / Daemons and switch them on or off.
+- 🚀 **Startup apps** — Launch Agents / Daemons with friendly names, app icons, and
+  vendor groups (Adobe, Google, Docker…), plus on/off toggles.
 - 👥 **Users · Details · Services** tabs, and a **Run new task** launcher.
 
 ## 📸 Screenshots
 
 | Performance (per‑core) | Startup apps |
 | :---: | :---: |
-| <img src="image/performance.png" width="420" alt="Performance" /> | <img src="image/startup.png" width="420" alt="Startup apps" /> |
+| <img src="image/performance.png" width="420" alt="Performance" /> | <img src="image/startup-decoded.png" width="420" alt="Startup apps" /> |
 
 ## 🚀 Getting started
 
